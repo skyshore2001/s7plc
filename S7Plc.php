@@ -172,14 +172,7 @@ class S7Plc
 			else {
 				$value1 = unpack($fmt, $value)[1];
 			}
-			if ($type == "int16") {
-				if ($value1 > 0x8000)
-					$value1 -= 0x10000;
-			}
-			else if ($type == "int32") {
-				if ($value1 > 0x80000000)
-					$value1 -= 0x100000000;
-			}
+			self::fixInt($type, $value1);
 			$ret[] = $value1;
 
 			if ($len % 2 != 0) {
@@ -188,6 +181,24 @@ class S7Plc
 			$pos += $len;
 		};
 		return $ret;
+	}
+
+	private static function fixInt($type, &$value) {
+		if (is_array($value)) {
+			foreach ($value as &$v) {
+				self::fixInt($type, $v);
+			}
+			unset($v);
+			return;
+		}
+		if ($type == "int16") {
+			if ($value > 0x8000)
+				$value -= 0x10000;
+		}
+		else if ($type == "int32") {
+			if ($value > 0x80000000)
+				$value -= 0x100000000;
+		}
 	}
 
 	// items: [ ["DB21.0:int32", 70000], ["DB21.4:float", 3.14] ]
