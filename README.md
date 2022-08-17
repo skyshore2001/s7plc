@@ -2,6 +2,11 @@
 
 A php lib to read/write Siements S7 PLC series like S7-1200/S7-1500 via S7 protocol.
 
+Related projects:
+
+- [plc-access](https://github.com/skyshore2001/plc-access/): A php command-line tool to read/write PLC via Siements S7 protocol or modbus tcp protocol.
+- [plcserver](https://github.com/skyshore2001/plcserver/): PLC access service that supports to read/write/**watch and callback** via http web service
+
 Usage (level 1): read/write once (short connection)
 
 ```php
@@ -32,22 +37,29 @@ catch (S7PlcException $ex) {
 	echo('error: ' . $ex->getMessage());
 }
 ```
+
 **Read/write array**
 
-	$plc->write(["DB21.0:int8[4]", "DB21.4:float[2]"], [ [1,2,3,4], [3.3, 4.4] ]);
-	$res = $plc->read(["DB21.0:int8[4]", "DB21.4:float[2]"]);
-	// $res example: [ [1,2,3,4], [3.3, 4.4] ]
+```php
+$plc->write(["DB21.0:int8[4]", "DB21.4:float[2]"], [ [1,2,3,4], [3.3, 4.4] ]);
+$res = $plc->read(["DB21.0:int8[4]", "DB21.4:float[2]"]);
+// $res example: [ [1,2,3,4], [3.3, 4.4] ]
+```
 
 OR
 
-	S7Plc::writePlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float[2]"], [ [1,2,3,4], [3.3, 4.4] ]);
-	$res = S7Plc::readPlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float[2]"]);
+```php
+S7Plc::writePlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float[2]"], [ [1,2,3,4], [3.3, 4.4] ]);
+$res = S7Plc::readPlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float[2]"]);
+```
 
 It's ok to contain both array and elements:
 
-	S7Plc::writePlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float", "DB21.8:float"], [ [1,2,3,4], 3.3, 4.4 ]);
-	$res = S7Plc::readPlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float", "DB21.8:float"]);
-	// $res example: [ [1,2,3,4], 3.3, 4.4 ]
+```php
+S7Plc::writePlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float", "DB21.8:float"], [ [1,2,3,4], 3.3, 4.4 ]);
+$res = S7Plc::readPlc("192.168.1.101", ["DB21.0:int8[4]", "DB21.4:float", "DB21.8:float"]);
+// $res example: [ [1,2,3,4], 3.3, 4.4 ]
+```
 
 **Address Example**
 
