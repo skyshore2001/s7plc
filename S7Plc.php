@@ -92,6 +92,12 @@ class S7Plc
 		// "string[]"
 	];
 
+	const pdu_type_CR    	= 0xE0;  // Connection request
+	const pdu_type_CC    	= 0xD0;  // Connection confirm
+	const pdu_type_DT    	= 0xF0;  // Data transfer
+	const pdu_type_DR    	= 0x80;  // Disconnect request
+	const pdu_type_DC    	= 0xC0;  // Disconnect confirm
+
 	function __construct($addr) {
 		$this->addr = $addr;
 	}
@@ -115,6 +121,7 @@ class S7Plc
 			}
 			stream_set_timeout($fp, 3, 0); // read timeout=3s
 			$this->fp = $fp;
+			$this->isoConnect();
 		}
 		return $this->fp;
 	}
@@ -268,7 +275,7 @@ class S7Plc
 			"C", 0x32, // Telegram ID, always 32
 			"C", 0x01, // PduType_request
 			"n", 0, // AB_EX: AB currently unknown, maybe it can be used for long numbers.
-			"n", 0, // Sequence; // Message ID. This can be used to make sure a received answer; TODO: GetNextWord
+			"n", 1, // Sequence; // Message ID. This can be used to make sure a received answer; TODO: GetNextWord
 			"n", strlen($ReqParams), // Length of parameters which follow this header
 			"n", 0 // DataLen: Length of data which follow the parameters; 0: No data in the read request
 		]);
@@ -381,23 +388,27 @@ class S7Plc
 			throw new S7PlcException($error);
 		}
 		$payloadSize = unpack("n", substr($res,2,2))[1]; // TODO: check size
-		// TODO: 包可能没收全
 
 		$pos = 7; // TPKT+COTP
-		$S7ResHeader23 = myunpack(substr($res, $pos, 12), [
-			"C", "P", // Telegram ID, always 0x32
-			"C", "PDUType", // Header type 2 or 3
-			"n", "AB_EX",
-			"n", "Sequence",
-			"n", "ParamLen",
-			"n", "DataLen",
-			"n", "Error"
-		]);
-		if ($S7ResHeader23['Error']!=0) {
-			$error = 'server returns error: ' . $S7ResHeader23['Error'];
-			throw new S7PlcException($error);
+		$reqPduType = ord($req[5]);
+		if ($reqPduType == self::pdu_type_DT) { // data transfer
+			// TODO: 包可能没收全
+
+			$S7ResHeader23 = myunpack(substr($res, $pos, 12), [
+				"C", "P", // Telegram ID, always 0x32
+				"C", "PDUType", // Header type 2 or 3
+				"n", "AB_EX",
+				"n", "Sequence",
+				"n", "ParamLen",
+				"n", "DataLen",
+				"n", "Error"
+			]);
+			if ($S7ResHeader23['Error']!=0) {
+				$error = 'server returns error: ' . $S7ResHeader23['Error'];
+				throw new S7PlcException($error);
+			}
+			$pos += 12;
 		}
-		$pos += 12;
 
 		return $res;
 	}
@@ -459,6 +470,78 @@ class S7Plc
 			$item1["value"] = $value;
 		}
 		return $item1;
+	}
+
+	protected function isoConnect() {
+		$COTP = mypack([
+			"C", 17, // headerLength
+			"C", self::pdu_type_CR, // connect request
+			"n", 0, // dest reference
+			"n", 1, // src reference
+			"C", 0, // flags
+
+			"C", 0xc0, // parameter code=tpdu-size
+			"C", 1, // param len
+			"C", 0x0a, // value=1024
+
+			"C", 0xc1, // parameter src-tsap
+			"C", 2, // len
+			"n", 0x0102, // value
+
+			"C", 0xc2, // parameter dst-tsap
+			"C", 2, // len
+			"n", 0x0100, // value
+		]);
+		$TPKT = mypack([
+			"C", 3, // version: isoTcpVersion
+			"C", 0, // reserved: 0
+			"n", strlen($COTP) +4, // length + header length
+		]);
+		$req = $TPKT . $COTP;
+
+		$res = $this->isoExchangeBuffer($req, $pos);
+		$resPDUType = ord($res[5]);
+		if ($resPDUType != self::pdu_type_CC) { //Connect Confirm
+			$error = 'bad response package. require pdu_type_CC package';
+			throw new S7PlcException($error);
+		}
+
+		// NegotiatePDULength
+		$ReqParams = mypack([
+			"C", 0xf0, // setup comunnication
+			"C", 0x00, // reserved
+			"n", 1, // parallel jobs with ack calling: 1
+			"n", 1, // parallel jobs with ack called: 1
+			"n", 480 // PDU length
+		]);
+		$S7Req = mypack([
+			"C", 0x32, // Telegram ID, always 32
+			"C", 0x01, // PduType_request
+			"n", 0, // AB_EX: AB currently unknown, maybe it can be used for long numbers.
+			"n", 1024, // protocol data unit reference
+			"n", strlen($ReqParams), // Length of parameters which follow this header
+			"n", 0 // DataLen: Length of data which follow the parameters
+			// data
+		]) . $ReqParams;
+		$COTP = mypack([
+			"C", 2, // headerLength
+			"C", self::pdu_type_DT, // data transfer
+			"C", 0x80, // flag
+		]);
+		$TPKT = mypack([
+			"C", 3, // version: isoTcpVersion
+			"C", 0, // reserved: 0
+			"n", strlen($COTP) + strlen($S7Req) + 4, // length + header length
+		]);
+		$req = $TPKT . $COTP . $S7Req;
+
+		$res = $this->isoExchangeBuffer($req, $pos);
+		$resPDUType = ord($res[5]);
+		if ($resPDUType != self::pdu_type_DT) { // data transfer package
+			$error = 'bad response package. require pdu_type_DT package';
+			throw new S7PlcException($error);
+		}
+
 	}
 }
 
