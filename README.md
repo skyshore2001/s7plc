@@ -2,6 +2,13 @@
 
 A php lib to read/write Siements S7 PLC series like S7-1200/S7-1500 via S7 protocol.
 
+Related projects:
+
+- [plc-access](https://github.com/skyshore2001/plc-access/): A php command-line tool to read/write PLC via Siements S7 protocol or modbus tcp protocol.
+- [plcserver](https://github.com/skyshore2001/plcserver/): PLC access service that supports to read/write/**watch and callback** via http web service
+
+## Usage
+
 Usage (level 1): read/write once (short connection)
 
 ```php
@@ -42,7 +49,7 @@ catch (PlcAccessException $ex) {
 }
 ```
 
-**Read/write array**
+## Read/write array
 
 ```php
 $plc->write([
@@ -71,7 +78,7 @@ $res = $plc->read(["DB21.0:int8[4]", "DB21.4:float", "DB21.8:float"]);
 // $res example: [ [1,2,3,4], 3.3, 4.4 ]
 ```
 
-**Read/write string**
+## Read/write string
 
 Type `char[capacity]` is fixed-length string:
 
@@ -92,3 +99,29 @@ Type `string[capacity]` is variable-length string, compatible with Siemens S7 st
 
 For variable-length string, all chars (capacity) are read and just return string with the actual length.
 
+## Reference
+
+**Address Example**
+
+- DB21.DBB4 (byte): DB21.4:int8 (-127~127) or DB21.4:uint8 (0~256)
+- DB21.DBW4 (word): DB21.4:int16 (-32767~32768) or DB21.4:uint16 (0~65536)
+- DB21.DBD4 (dword): DB21.4:int32 or DB21.4:uint32 or DB21.4:float
+- DB21.DBX4.0 (bit): DB21.4.0:bit
+
+**Support types:**
+
+- int8
+- uint8/byte
+- int16/int
+- uint16/word
+- int32/dint
+- uint32/dword
+- bit/bool
+- float
+- char[capacity]
+- string[capacity]
+
+## TODO
+
+- byte order definition.
+- just test on S7-1200 series. (S7-200 uses different connection param like rack)
